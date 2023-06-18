@@ -5,15 +5,15 @@ https://www.amazon.com/ZOSI-channels-Security-Detection-Recorder/dp/B00KX00DVI/
 
 **TL/DR**
 
-I never really felt like the owner of my Zosi H.264 DVR security system since I didn't have the credentials to login to its listening telnet port.  I attempted to bruteforce access over the network using hydra but with no luck.  Next I downloaded the DVR's firmware, extracted the file system, and found root's encrypted password.  I spent four days trying to crack the password and finally succeeded using rockyou and hashcat's dive rule on the 4th day.  Using the cracked password I was able to telnet into the DVR as root.  Now that I have root access, I'm a proud pwner of the Zosi H.264 DVR!
+I never really felt like the owner of my Zosi H.264 DVR security system since I didn't have the credentials to login to its listening telnet port.  I attempted to bruteforce access over the network using hydra but had no luck.  Next I downloaded the DVR's firmware, extracted the file system, and found root's encrypted password.  I spent four days trying to crack the password and finally succeeded using rockyou and hashcat's dive rule set on the 4th day.  Using the cracked password I was able to telnet into the DVR as root.  Now that I have root access, I'm a proud pwner of the Zosi H.264 DVR!
 
 **The Journey**
 
 My dad purchased a Zosi H.264 720p DVR camera system as a holiday gift for me some time ago.  He was gracious enough to come over and assist me with installing the cameras and fishing the power and data lines through the attic to my network rack.  It was a long dusty day of crawling through my home's attic but we were successful and I had a new security camera system to catch all the happenings around my home.
 
-The manufacturer offers a desktop and a mobile application to remotely view various cameras.  I wasn't too keen on remotely accessing the video footage at any time so I opted not use the applications in favor of connecting a monitor to the DVR and viewing the closed feed whenever needed.  
+The manufacturer of the camera system offers a desktop and a mobile application to remotely view various cameras.  I wasn't too keen on remotely accessing the video footage at any time so I opted not use the applications in favor of connecting a monitor to the DVR and viewing the closed feed whenever needed.  
 
-Out of curiosity I connected the DVR on my network and ran an `nmap` scan.  The scan quickly discovered port 23 telnet was open.  Telnet is an unencrypted remote access service which could grant me a terminal on the DVR if I had the credentials.
+Out of curiosity, I connected the DVR on my network and ran an `nmap` scan.  The scan quickly discovered port 23 telnet was open.  Telnet is an unencrypted remote access service which could grant me a terminal on the DVR if I had the credentials.
 
 ```bash
 daniel@daniel-desktop:~$ nmap -A 192.168.3.138 -p-
@@ -88,7 +88,7 @@ daniel@daniel-desktop:/tmp$ file rootfs-hi3520d
 rootfs-hi3520d: u-boot legacy uImage, hirootfs, Linux/ARM, Filesystem Image (any type) (Not compressed), 11648276 bytes, Tue Dec 22 03:26:43 2015, Load Address: 0x00000000, Entry Point: 0x00000000, Header CRC: 0x35576305, Data CRC: 0xA18D7037
 ```
 
-Next I unsuccessfully tried extracting the file system from the firmware file using `binwalk`.  Nonetheless, `binwalk` identified a header in the first 64 bytes and a jffs2 file system in the remaining of the byte range.
+Next, I unsuccessfully tried extracting the file system from the firmware file using `binwalk`.  Nonetheless, `binwalk` identified a header in the first 64 bytes and a jffs2 file system in the remaining of the byte range.
 
 ```bash
 daniel@daniel-desktop:/tmp$ binwalk -e rootfs-hi3520d 
@@ -99,7 +99,7 @@ DECIMAL       HEXADECIMAL     DESCRIPTION
 64            0x40            JFFS2 filesystem, little endian
 ```
 
-Even though `binwalk` didn't extract the file system, I could use `dd` to specifically carve out the byte range desired.  Running `dd` did the trick as I extracted just the jffs2 section of the firmware file into a file named `system.jffs2` and confirmed file type of jffs2 using the `file` command.
+Even though `binwalk` didn't extract the file system, I could use `dd` to specifically carve out the byte range desired.  Running `dd` did the trick as I extracted just the jffs2 section of the firmware file into a file named `system.jffs2` and confirmed the jffs2 file type using the `file` command.
 
 ```bash
 daniel@daniel-desktop:/tmp$ dd if=rootfs-hi3520d of=system.jffs2 skip=64 bs=1
@@ -181,7 +181,7 @@ daniel@daniel-desktop:/tmp/jffs2-root$ cat etc/passwd
 root:$1$Zvj.IvRb$7g3anRUwEV0tiP//JNqAh/:0:0::/root:/bin/sh
 ```
 
-I explored the rest of the file system for other secrets but it didn't turn up anything meaningful.  With the encrypted password in hand, I fired up my local cracking box which isn't anything more than a physical consumer grade computer with an RTX 3060 graphics card.  I started with a bruteforce attack using `hashcat` configured to try every combination of digits, uppercase, lowercase, and special characters.  
+I explored the rest of the file system for other secrets but it didn't turn up anything meaningful.  With the encrypted password in hand, I fired up my local cracking box which isn't anything more than a physical consumer grade computer with an RTX 3060 graphics card.  I started with a bruteforce attack using `hashcat` configured to try every combination of digits, uppercase, lowercase, and special characters.  This would be much faster and more efficient then using `hydra` network attack as my graphics card could try many combinations at once and not have any network overhead.  `hashcat` works by encrypting the guessed password and compares the results to the target password.  If there is a comparable match, the password becomes known or cracked.
 
 ```bash
 hashcat -a 3 -m 500 -O -w 3 -1?l?u?d?s ?1?1?1 zosi.passwd
@@ -193,13 +193,13 @@ After a full day of running, `hashcat` incremented to 7 character attempts that 
 hashcat -m 500 zosi.passwd -a 3 -1 '!@#$%/.' -2?u?l?d ?2?2?2?2?2?2?2?2?2?2 -i -w 3 -O --increment-min=7
 ```
 
-After 3 long days of  password cracking 7 characters, all combinations were exhausted and 8 characters were going to take another 30 days.  30 days definitely exceeded my interest in this project so I decided to turn to a `hashcat` wordlist approach using rockyou.txt with the dive ruleset.  The rockyou file contains about 14 million passwords from a data breach back in 2009.  14 million passwords might sound like a lot but it is grossly insufficient and only takes a few minutes to try every password in the list.  But you can extend that list by using hashcat's dive ruleset which mutates each password in the list with hundreds of rules like adding a couple digits to the end of the password or changing the letter "s" to a dollar sign.  Rockyou with the dive rule brings the total attempts from 14 million to about 1.5 trillion and would demand a full day of runtime to complete.  I fired it off and went to bed.  
+After 3 long days of  password cracking 7 characters, all combinations were exhausted and 8 characters were going to take another 30 days.  30 days definitely exceeded my interest in this project so I decided to turn to a `hashcat` wordlist approach using rockyou.txt with the dive rule set.  The rockyou file contains about 14 million passwords from a data breach back in 2009.  14 million passwords might sound like a lot but it is grossly insufficient and only takes a few minutes to try every password in the list.  But you can extend that list by using hashcat's dive rule set which mutates each password in the list with hundreds of rules like adding a couple digits to the end of the password or changing the letter "s" to a dollar sign.  Rockyou with the dive rule set brings the total attempts from 14 million to about 1.5 trillion and would demand a full day of runtime to complete.  I fired it off and went to bed.  
 
 ```bash
 hashcat -m 500 zosi.passwd wordlists/rockyou.txt -r /usr/share/hashcat/rules/dive.rule -w 3 -O
 ```
 
-The next morning I checked the status of the rockyou+dive ruleset and bingo, password cracked!!
+The next morning I checked the status of the rockyou+dive rule set and bingo, password cracked!!
 
 ```bash
 
@@ -224,7 +224,7 @@ Candidates.#1....: 1231234456 -> dus1234hleepapp
 Hardware.Mon.#1..: Temp: 71c Fan: 69% Util:100% Core:1920MHz Mem:7300MHz Bus:16
 ```
 
-It was finally time to find out if all this effort has been worth it by attempting to telnet into the DVR with the cracked password of the root user.  I launched `telnet` from my desktop, entered the username and password, and I got a "Welcome to HiLinux" message.  I was in and for the first time I felt like I truly pwned this DVR!  
+It was finally time to find out if all this effort had been worth it by attempting to telnet into the DVR with the cracked password of the root user.  I launched `telnet` from my desktop, entered the username and password, and I got a "Welcome to HiLinux" message.  I was in and for the first time I felt like I truly pwned this DVR!  
 
 ![](files/Pasted%20image%2020230617205626.png)
 
