@@ -4,9 +4,11 @@
 https://www.amazon.com/ZOSI-channels-Security-Detection-Recorder/dp/B00KX00DVI/
 
 **TL/DR**
+
 I never really felt like the owner of my Zosi H.264 DVR security system since I didn't have the credentials to login to its listening telnet port.  I attempted to bruteforce access over the network using hydra but with no luck.  Next I downloaded the DVR's firmware, extracted the file system, and found root's encrypted password.  I spent four days trying to crack the password and finally succeeded using rockyou and hashcat's dive rule on the 4th day.  Using the cracked password I was able to telnet into the DVR as root.  Now that I have root access, I'm a proud pwner of the Zosi H.264 DVR!
 
 **The Journey**
+
 My dad purchased a Zosi H.264 720p DVR camera system as a holiday gift some time ago.  He was gracious enough to come over and assist me with installing the cameras and fishing the power and data lines through the attic to my network rack.  It was a long dusty day of crawling through my home's attic but we were successful and I had a new security camera system to catch all the happenings around my home.
 
 The manufacturer offers a desktop and a mobile application to remotely view various cameras.  I wasn't too keen on accessing the video footage at any time so I opted not use the applications in favor of connecting a monitor to the DVR and viewing the closed feed whenever needed.  
